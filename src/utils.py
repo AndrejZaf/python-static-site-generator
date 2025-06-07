@@ -21,4 +21,20 @@ def text_node_to_html_node(text_node):
 
 
 def split_nodes_delimiter(old_nodes, delimiter, text_type):
-    old_nodes
+    new_nodes = []
+    for node in old_nodes:
+        if node.text_type != TextType.NORMAL_TEXT:
+            new_nodes.append(node)
+
+        if node.text.count(delimiter) % 2 != 0:
+            raise ValueError("Missing closing delimiter")
+
+        nodes = node.text.split(delimiter)
+        for index in range(len(nodes)):
+            if index % 2 != 0:
+                new_nodes.append(TextNode(nodes[index], text_type))
+            else:
+                new_nodes.append(TextNode(nodes[index], TextType.NORMAL_TEXT))
+                
+    return new_nodes
+
