@@ -1,6 +1,7 @@
 from leafnode import LeafNode
 from htmlnode import HTMLNode
 from textnode import TextNode, TextType
+from parentnode import ParentNode
 import re
 from enum import Enum
 
@@ -186,21 +187,46 @@ def markdown_to_html_node(markdown):
         text_nodes = text_to_textnodes(block)
         html_text_nodes = list(map(text_node_to_html_node, text_nodes))
         if block_type == BlockType.PARAGRAPH:
-            html_nodes.append(HTMLNode("p", "", html_text_nodes))
+            lines = block.split("\n")
+            paragraph = " ".join(lines)
+            paragraph_text_nodes = text_to_textnodes(paragraph)
+            children = []
+            for text_node in paragraph_text_nodes:
+                html_node = text_node_to_html_node(text_node)
+                children.append(html_node)
+            html_nodes.append(ParentNode("p", children))
         elif block_type == BlockType.QUOTE:
-            html_nodes.append(HTMLNode("blockquote", "", html_text_nodes))
+            html_nodes.append(ParentNode("blockquote", html_text_nodes))
         elif block_type == BlockType.CODE:
-            lines = block.split("\n")[1:-1]
-            html_nodes.append(HTMLNode("pre", "", [HTMLNode("code", "\n".join(lines))]))
+            if not block.startswith("```") or not block.endswith("```"):
+                raise ValueError("Invalid code block")
+            text = block[4:3]
+            raw_text_node = TextNode(text, TextType.NORMAL_TEXT)
+            child = text_node_to_html_node(raw_text_node)
+            html_nodes.append(ParentNode("pre", [ParentNode("code", [child])]))
         elif block_type == BlockType.HEADING:
             blocks_split = block.split(" ", 1)
             heading_text_nodes = text_to_textnodes(blocks_split[1])
-            html_nodes.append(HTMLNode(f"h{len(blocks_split[0])}", "", heading_text_nodes))
+            html_nodes.append(ParentNode(f"h{len(blocks_split[0])}", "", heading_text_nodes))
         elif block_type == BlockType.UNORDERED_LIST:
-            pass
+            lines = block.split("\n")
+            lines_filtered = list(map(lambda s: s[2:], lines))
+            parsed_text_nodes = list(map(text_to_textnodes, lines_filtered))
+            parsed_html_nodes = []
+            for parsed_node in parsed_text_nodes:
+                parsed_html_node = ParentNode("li", list(map(text_node_to_html_node, parsed_node)))
+                parsed_html_nodes.append(parsed_html_node)
+            html_nodes.append(ParentNode("ul", parsed_html_nodes))    
         elif block_type == BlockType.ORDERED_LIST:
-            pass
-    return HTMLNode("div", "", html_nodes)
+            lines = block.split("\n")
+            lines_filtered = list(map(lambda s: s.split(" ", 1)[1], lines))
+            parsed_text_nodes = list(map(text_to_textnodes, lines_filtered))
+            parsed_html_nodes = []
+            for parsed_node in parsed_text_nodes:
+                parsed_html_node = ParentNode("li", list(map(text_node_to_html_node, parsed_node)))
+                parsed_html_nodes.append(parsed_html_node)
+            html_nodes.append(ParentNode("ol", parsed_html_nodes))
+    return ParentNode("div", html_nodes, None)
 
 md = """
 This is **bolded** paragraph
